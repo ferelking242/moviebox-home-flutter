@@ -1,324 +1,190 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-void main() {
-  runApp(const MovieBoxHomeApp());
-}
+// Reproduction of https://themoviebox.xyz/ home page, built by reading the
+// site's real HTML/CSS (attached_assets/page_(1)_1784001367125.html) rather
+// than guessing from screenshots. Key tokens taken directly from that CSS:
+//  - background       #101114
+//  - card background  #2b2e39
+//  - header border    #ffffff1a
+//  - search bg        #fff3 (white 20%), radius .5rem, height 2.5rem, max-width 35rem
+//  - logo icon        2rem x 2.25rem
+//  - sidebar nav item width 12.5rem, radius .5rem, active bg #fff3
+//  - active nav label: linear-gradient(91deg,#1cb7ff 1.22%,#2ff58b 50.24%)
+//    clipped to text — the "brush" gradient effect on the selected tab.
+//  - hero bottom blend: 100px gradient, transparent -> #101114
 
-class MovieBoxHomeApp extends StatelessWidget {
-  const MovieBoxHomeApp({super.key});
+const _bg = Color(0xFF101114);
+const _cardBg = Color(0xFF2B2E39);
+const _borderColor = Color(0x1AFFFFFF);
+const _searchBg = Color(0x33FFFFFF);
+const _brushBlue = Color(0xFF1CB7FF);
+const _brushGreen = Color(0xFF2FF58B);
+
+void main() => runApp(const MovieBoxApp());
+
+class MovieBoxApp extends StatelessWidget {
+  const MovieBoxApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MovieBox Home — reproduction',
+      title: 'MovieBox — reproduction',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF121212),
+        scaffoldBackgroundColor: _bg,
         fontFamily: 'Roboto',
       ),
-      home: const HomeScreen(),
+      home: const HomePage(),
     );
   }
 }
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
+class NavItem {
+  final IconData icon;
+  final String label;
+  const NavItem(this.icon, this.label);
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  final _tabs = const [
-    'FightZone',
-    'World Cup',
-    'Tendance',
-    'Film',
-    'TV',
-    'Anime',
-    'TV courte',
-  ];
-  int _selectedTab = 2;
+const _navItems = [
+  NavItem(Icons.home_rounded, 'Home'),
+  NavItem(Icons.live_tv_rounded, 'TV show'),
+  NavItem(Icons.movie_creation_rounded, 'Movie'),
+  NavItem(Icons.pets_rounded, 'Animation'),
+  NavItem(Icons.bar_chart_rounded, 'Most Watched'),
+  NavItem(Icons.phone_android_rounded, 'MovieBox App'),
+  NavItem(Icons.tv_rounded, 'Moviebox TV APK'),
+  NavItem(Icons.file_download_rounded, 'FM Download'),
+  NavItem(Icons.sports_esports_rounded, 'Games'),
+  NavItem(Icons.history_rounded, 'Old Moviebox'),
+];
 
-  // Each hero "slide" carries the two gradient colors used for its
-  // placeholder banner + the bottom-left ambient blur color, mirroring the
-  // BlurredSectorView glow found in the decompiled fragment_home.xml.
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _selectedNav = 0;
+  int _slide = 0;
+
   final _slides = const [
-    _HeroSlide(
-      colors: [Color(0xFFEA6A3E), Color(0xFFF2C9C0)],
-      glow: Color(0x99512F2F),
-      title: 'Coupe du Monde de la FIFA',
-      subtitle: 'REJOIGNEZ-NOUS',
-    ),
-    _HeroSlide(
-      colors: [Color(0xFF7A1F2B), Color(0xFF2A2A2A)],
-      glow: Color(0x99512F2F),
-      title: 'Ikka [Version française]',
-      subtitle: 'Drame · 2026',
-    ),
-    _HeroSlide(
-      colors: [Color(0xFF3A2A1E), Color(0xFF120A08)],
-      glow: Color(0x99512F2F),
-      title: 'Animés japonais',
-      subtitle: 'Record of Ragnarok',
-    ),
+    _Hero(title: 'The Furious', meta: '2026 · Action, Crime, Thriller', colors: [Color(0xFF3A1414), Color(0xFF101114)]),
+    _Hero(title: 'Ikka [Version française]', meta: '2026 · Drame', colors: [Color(0xFF7A1F2B), Color(0xFF101114)]),
+    _Hero(title: 'Human Vapor', meta: '2026 · Drama', colors: [Color(0xFF12386B), Color(0xFF101114)]),
   ];
-  int _slideIndex = 0;
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: Scaffold(
-        extendBody: true,
-        body: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _buildHero(context)),
-            SliverToBoxAdapter(child: _buildPromoStrip()),
-            SliverToBoxAdapter(child: _buildFifaSection()),
-            SliverToBoxAdapter(child: _buildCategories()),
-            SliverToBoxAdapter(child: _buildRankings()),
-            const SliverToBoxAdapter(child: SizedBox(height: 90)),
-          ],
-        ),
-        bottomNavigationBar: const _BottomNav(),
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+    return Scaffold(
+      backgroundColor: _bg,
+      body: Column(
+        children: [
+          _Header(isDesktop: isDesktop),
+          Expanded(
+            child: Row(
+              children: [
+                if (isDesktop) _Sidebar(selected: _selectedNav, onSelect: (i) => setState(() => _selectedNav = i)),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHero(),
+                        _buildSection('Popular Series', _seriesPosters),
+                        _buildSection('Popular Movie', _moviePosters),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // ---- Hero carousel + scrim + tab row -----------------------------------
-  Widget _buildHero(BuildContext context) {
-    final slide = _slides[_slideIndex];
+  Widget _buildHero() {
+    final s = _slides[_slide];
     return SizedBox(
-      height: 430,
+      height: 460,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Full-bleed banner, one per PageView page.
-          PageView.builder(
-            itemCount: _slides.length,
-            onPageChanged: (i) => setState(() => _slideIndex = i),
-            itemBuilder: (context, i) {
-              final s = _slides[i];
-              return Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: s.colors,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              );
-            },
-          ),
-          // Bottom-left ambient glow (BlurredSectorView equivalent):
-          // a soft, blurred translucent half-circle anchored bottom-left.
-          Positioned(
-            left: -60,
-            bottom: -40,
-            child: _BlurredGlow(color: slide.glow),
-          ),
-          // Top scrim: dark-to-transparent gradient sitting above the
-          // banner and below the status bar / search / tab row, so the
-          // tab labels stay legible regardless of the banner's own colors.
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xB3000000),
-                  Color(0x40000000),
-                  Color(0x00000000),
-                ],
-                stops: [0.0, 0.4, 1.0],
-              ),
-            ),
-          ),
-          // Title/subtitle overlay near the bottom of the banner.
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 96,
-            child: Text(
-              slide.subtitle,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 34,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.2,
-                shadows: [Shadow(blurRadius: 12, color: Colors.black54)],
-              ),
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                _buildSearchBar(),
-                const SizedBox(height: 10),
-                _buildTabRow(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.35),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: const [
-            Icon(Icons.search, color: Colors.white70, size: 20),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                "Rechercher un film/une série/un audio",
-                style: TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ),
-            Text(
-              'Recherche',
-              style: TextStyle(
-                color: Color(0xFF4CD964),
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTabRow() {
-    return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: _tabs.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 18),
-        itemBuilder: (context, i) {
-          final selected = i == _selectedTab;
-          return GestureDetector(
-            onTap: () => setState(() => _selectedTab = i),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
             child: Container(
-              alignment: Alignment.center,
-              padding:
-                  selected ? const EdgeInsets.symmetric(horizontal: 10) : null,
-              decoration: selected
-                  ? BoxDecoration(
-                      color: const Color(0xFFCFEA3A),
-                      borderRadius: BorderRadius.circular(14),
-                    )
-                  : null,
-              child: Text(
-                _tabs[i],
-                style: TextStyle(
-                  color: selected ? Colors.black : Colors.white,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                  fontSize: 14,
-                  shadows: selected
-                      ? null
-                      : const [Shadow(blurRadius: 6, color: Colors.black54)],
+              key: ValueKey(_slide),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: s.colors,
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
                 ),
               ),
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  // ---- Promo strip (two cards under the hero) ----------------------------
-  Widget _buildPromoStrip() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      child: Row(
-        children: [
-          Expanded(child: _promoCard('Rejoignez-nous !', const Color(0xFFEA6A3E), trailingIcon: Icons.play_circle_fill)),
-          const SizedBox(width: 10),
-          Expanded(child: _promoCard('Ikka [Version française]', const Color(0xFF7A1F2B), subtitle: '2026 · Drame')),
-        ],
-      ),
-    );
-  }
-
-  Widget _promoCard(String title, Color color, {String? subtitle, IconData? trailingIcon}) {
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1D1D1D),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(6),
+          ),
+          // Bottom blend into the page background — taken directly from the
+          // site's `bg-gradient-to-b from-transparent to-[#101114]` overlay.
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              height: 100,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x00101114), _bg],
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
+          Positioned(
+            left: 32,
+            bottom: 40,
+            right: 32,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                if (subtitle != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                Text(s.title,
+                    style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                Text(s.meta, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 12,
+            top: 0,
+            bottom: 0,
+            child: Center(child: _arrowButton(Icons.chevron_left, () => setState(() => _slide = (_slide - 1 + _slides.length) % _slides.length))),
+          ),
+          Positioned(
+            right: 12,
+            top: 0,
+            bottom: 0,
+            child: Center(child: _arrowButton(Icons.chevron_right, () => setState(() => _slide = (_slide + 1) % _slides.length))),
+          ),
+          Positioned(
+            right: 24,
+            bottom: 24,
+            child: Row(
+              children: List.generate(_slides.length, (i) {
+                final active = i == _slide;
+                return Container(
+                  margin: const EdgeInsets.only(left: 4),
+                  width: active ? 16 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: active ? Colors.white : Colors.white38,
+                    borderRadius: BorderRadius.circular(3),
                   ),
-              ],
-            ),
-          ),
-          if (trailingIcon != null) Icon(trailingIcon, color: const Color(0xFF4CD964), size: 26),
-        ],
-      ),
-    );
-  }
-
-  // ---- FIFA section -------------------------------------------------------
-  Widget _buildFifaSection() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 20, 12, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader('Coupe du Monde de la FIFA'),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 110,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _matchCard('Prochain · 15:53:33', 'France', 'Spain', const Color(0xFF12386B)),
-                const SizedBox(width: 10),
-                _matchCard('Prochain · 1 Day à gauche', 'England', 'Argentina', const Color(0xFF6B1212)),
-              ],
+                );
+              }),
             ),
           ),
         ],
@@ -326,116 +192,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _matchCard(String time, String left, String right, Color accent) {
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [accent, const Color(0xFF1D1D1D)]),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(time, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _flagVs(left),
-              const Text('VS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              _flagVs(right),
-            ],
-          ),
-        ],
+  Widget _arrowButton(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(color: Colors.black.withOpacity(0.45), shape: BoxShape.circle),
+        child: Icon(icon, color: Colors.white70),
       ),
     );
   }
 
-  Widget _flagVs(String name) {
-    return Column(
-      children: [
-        Container(width: 28, height: 20, color: Colors.white24),
-        const SizedBox(height: 4),
-        Text(name, style: const TextStyle(color: Colors.white, fontSize: 11)),
-      ],
-    );
-  }
-
-  // ---- Categories -----------------------------------------------------------
-  Widget _buildCategories() {
+  Widget _buildSection(String title, List<_Poster> posters) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 24, 12, 0),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader('Catégories'),
-          const SizedBox(height: 10),
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 60,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _categoryChip('Tous', Icons.tune, const Color(0xFF2E2E2E)),
-                _categoryChip('Hollywood', null, const Color(0xFF2A4A3E)),
-                _categoryChip('Action', null, const Color(0xFF3E2A2A)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _categoryChip(String label, IconData? icon, Color color) {
-    return Container(
-      margin: const EdgeInsets.only(right: 10),
-      width: 130,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          if (icon != null) ...[
-            const SizedBox(width: 6),
-            Icon(icon, color: Colors.white70, size: 16),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ---- Rankings -------------------------------------------------------------
-  Widget _buildRankings() {
-    const items = ['The Last Airbender', 'Human Vapor', 'Golden Kamuy'];
-    const colors = [Color(0xFFB2431E), Color(0xFF1E3A5F), Color(0xFF6B5A1E)];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 24, 12, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader('Classements'),
-          const SizedBox(height: 10),
-          Row(
-            children: const [
-              _RankTab('Tendance', selected: true),
-              SizedBox(width: 16),
-              _RankTab('Séries'),
-              SizedBox(width: 16),
-              _RankTab('Films'),
-              SizedBox(width: 16),
-              _RankTab('Animés'),
-            ],
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 190,
+            height: 210,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, i) => _rankCard(i + 1, items[i], colors[i]),
+              itemCount: posters.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, i) => _posterCard(posters[i]),
             ),
           ),
         ],
@@ -443,30 +226,36 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _rankCard(int rank, String title, Color color) {
+  Widget _posterCard(_Poster p) {
     return Container(
-      width: 120,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Stack(
+      width: 140,
+      decoration: BoxDecoration(color: _cardBg, borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            left: 6,
-            top: 6,
+          Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-              child: Text('$rank', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: p.colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+              ),
+              child: p.badge == null
+                  ? null
+                  : Align(
+                      alignment: Alignment.topRight,
+                      child: Container(
+                        margin: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(3)),
+                        child: Text(p.badge!, style: const TextStyle(color: Colors.white, fontSize: 10)),
+                      ),
+                    ),
             ),
           ),
-          Positioned(
-            left: 6,
-            right: 6,
-            bottom: 8,
-            child: Text(title,
-                maxLines: 2,
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(p.title,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
           ),
@@ -475,121 +264,161 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _sectionHeader(String title) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
-        const Row(
-          children: [
-            Text('Tous', style: TextStyle(color: Colors.white54, fontSize: 12)),
-            Icon(Icons.chevron_right, color: Colors.white54, size: 16),
-          ],
-        ),
-      ],
-    );
-  }
+  final _seriesPosters = const [
+    _Poster('Avatar: The Last Airbender', [Color(0xFF1E3A5F), Color(0xFF12386B)], badge: null),
+    _Poster('House of the Dragon', [Color(0xFF2A2A2A), Color(0xFF101114)]),
+    _Poster('Agent Kim Reactivated', [Color(0xFF1C1E21), Color(0xFF000000)], badge: 'English'),
+    _Poster('Kwa Baba', [Color(0xFF6B5A1E), Color(0xFF2A2422)]),
+    _Poster('Love Island USA', [Color(0xFFFD3AB4), Color(0xFF7A1F2B)]),
+    _Poster('Human Vapor', [Color(0xFF12386B), Color(0xFF1E3A5F)], badge: 'English'),
+  ];
+
+  final _moviePosters = const [
+    _Poster('The Last Airbender', [Color(0xFFB2431E), Color(0xFF6B1212)]),
+    _Poster('Golden Kamuy', [Color(0xFF6B5A1E), Color(0xFF3A2A1E)]),
+    _Poster('Elle', [Color(0xFFFD3AB4), Color(0xFF2A2422)], badge: 'New'),
+    _Poster('The Furious', [Color(0xFF3A1414), Color(0xFF101114)]),
+  ];
 }
 
-class _HeroSlide {
-  final List<Color> colors;
-  final Color glow;
+class _Hero {
   final String title;
-  final String subtitle;
-  const _HeroSlide({
-    required this.colors,
-    required this.glow,
-    required this.title,
-    required this.subtitle,
-  });
+  final String meta;
+  final List<Color> colors;
+  const _Hero({required this.title, required this.meta, required this.colors});
 }
 
-/// Reproduces the decompiled `BlurredSectorView`: a soft, blurred
-/// translucent half-circle anchored to the bottom-left of the hero banner,
-/// giving the ambient "glow" seen behind the carousel content.
-class _BlurredGlow extends StatelessWidget {
-  final Color color;
-  const _BlurredGlow({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-      child: Container(
-        width: 260,
-        height: 260,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      ),
-    );
-  }
+class _Poster {
+  final String title;
+  final List<Color> colors;
+  final String? badge;
+  const _Poster(this.title, this.colors, {this.badge});
 }
 
-class _RankTab extends StatelessWidget {
-  final String label;
-  final bool selected;
-  const _RankTab(this.label, {this.selected = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        color: selected ? Colors.white : Colors.white54,
-        fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-        fontSize: 14,
-      ),
-    );
-  }
-}
-
-class _BottomNav extends StatelessWidget {
-  const _BottomNav();
+/// Top header: hamburger + logo/name (left), search bar, download button
+/// (right) — matches `.pc-header` / `.pc-header-inner` from the real site.
+class _Header extends StatelessWidget {
+  final bool isDesktop;
+  const _Header({required this.isDesktop});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 74,
-      padding: const EdgeInsets.only(top: 6),
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: const BoxDecoration(
-        color: Color(0xFF161616),
-        border: Border(top: BorderSide(color: Color(0xFF262626))),
+        color: _bg,
+        border: Border(bottom: BorderSide(color: _borderColor, width: 1)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _navItem(Icons.home, 'Accueil', selected: true),
-          _navItem(Icons.tv, 'TV courte'),
-          _freeButton(),
-          _navItem(Icons.download, 'Téléchargement'),
-          _navItem(Icons.person, 'Moi'),
+          const Icon(Icons.menu, color: Colors.white70, size: 26),
+          const SizedBox(width: 12),
+          Container(
+            width: 32,
+            height: 36,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [_brushBlue, _brushGreen]),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.play_arrow, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 4),
+          const Text('MovieBox', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+          Container(
+            margin: const EdgeInsets.only(left: 28),
+            constraints: const BoxConstraints(maxWidth: 560),
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(color: _searchBg, borderRadius: BorderRadius.circular(8)),
+            child: Row(
+              children: const [
+                Icon(Icons.search, color: Colors.white54, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text('Search movies/ TV Shows',
+                      style: TextStyle(color: Colors.white54, fontSize: 14)),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          if (isDesktop)
+            Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              margin: const EdgeInsets.only(left: 16),
+              decoration: BoxDecoration(color: _searchBg, borderRadius: BorderRadius.circular(30)),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.file_download_outlined, color: Colors.white, size: 16),
+                  SizedBox(width: 6),
+                  Text('Download App', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
+}
 
-  Widget _navItem(IconData icon, String label, {bool selected = false}) {
-    final color = selected ? const Color(0xFF4CD964) : Colors.white54;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 22),
-        const SizedBox(height: 2),
-        Text(label, style: TextStyle(color: color, fontSize: 10)),
-      ],
-    );
-  }
+/// Left vertical nav — matches `.left-slider` / `.pc-nav-item`. The selected
+/// item's label uses a clipped linear-gradient (blue -> green) exactly like
+/// `.title[data-v-2197f34b]{background:linear-gradient(91deg,#1cb7ff 1.22%,
+/// #2ff58b 50.24%);-webkit-background-clip:text;color:transparent}` on the
+/// real site — this is the "brush" gradient effect.
+class _Sidebar extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onSelect;
+  const _Sidebar({required this.selected, required this.onSelect});
 
-  Widget _freeButton() {
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      width: 46,
-      height: 46,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(colors: [Color(0xFF4CD964), Color(0xFF2E9E4A)]),
-        border: Border.all(color: const Color(0xFF161616), width: 3),
+      width: 224,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: const BoxDecoration(
+        color: _bg,
+        border: Border(right: BorderSide(color: _borderColor, width: 1)),
       ),
-      alignment: Alignment.center,
-      child: const Text('FREE', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)),
+      child: ListView.builder(
+        itemCount: _navItems.length,
+        itemBuilder: (context, i) {
+          final item = _navItems[i];
+          final active = i == selected;
+          return GestureDetector(
+            onTap: () => onSelect(i),
+            child: Container(
+              width: 200,
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: active ? _searchBg : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(item.icon, color: active ? _brushGreen : Colors.white70, size: 20),
+                  const SizedBox(width: 10),
+                  active
+                      ? ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [_brushBlue, _brushGreen],
+                          ).createShader(bounds),
+                          child: Text(item.label,
+                              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                        )
+                      : Text(item.label,
+                          style: const TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.w400)),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
