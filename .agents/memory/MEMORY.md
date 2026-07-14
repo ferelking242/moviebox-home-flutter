@@ -1,0 +1,3 @@
+- [Flutter on Replit](flutter-on-replit.md) — nix flutter package is stale/broken; adding a pubspec.yaml auto-triggers a working system Flutter install instead.
+- [No python3/node by default](no-python-node-default.md) — this repl has neither; use `dart run` (bundled with Flutter) for quick static file serving.
+- [Android APK decompile workflow](android-reverse-engineering-workflow.md) — jadx/apktool via nix-env land in ~/.nix-profile/bin, not on default PATH.
